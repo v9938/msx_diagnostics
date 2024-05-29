@@ -42,7 +42,8 @@ NGN_KEYBOARD_READ:
 		@@NEXT_ROW:
 			inc b				; Siguiente fila
 			ld a, b
-			cp 11				; Si ya se han leido todas las filas
+			cp 12				; Si ya se han leido todas las filas
+								; Modify FS-A1 FS-A1WSX/FS-A1WSX/FS-A1ST/FS-A1GT
 			jr nz, @@ROW_LOOP	; Si no, siguiente fila
 
 	; Habilita las interrupciones

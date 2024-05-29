@@ -701,6 +701,36 @@ FUNCTION_SYSTEM_INFO:
 
 	@@RTC_READ:
 
+	ld a, [KEYBOARD_LAYOUT]						; Distribucion
+
+	; Japon
+	or a	; 0
+	jr nz, @@RTC_READ_INTERNATIONAL
+	@@RTC_READ_JAPAN:
+	; Locate Date
+		ld hl, $1D0E
+		call NGN_TEXT_POSITION
+	; JP YYYY/MM/DD
+	;	YYYY
+		ld hl, $0B0C
+		call @@RTC_PRINT_DATA
+	;	Separador "/"
+		ld a, $2F
+		call $00A2					; Imprime el caracter en A. Rutina [CHPUT] de la BIOS
+	;	MM
+		ld hl, $090A
+		call @@RTC_PRINT_DATA
+	;	Separador "/"
+		ld a, $2F
+		call $00A2					; Imprime el caracter en A. Rutina [CHPUT] de la BIOS
+	;	DD
+		ld hl, $0708
+		call @@RTC_PRINT_DATA
+	jr @@RTC_READ_TIME
+
+
+	@@RTC_READ_INTERNATIONAL:
+	; Internacional MM/DD/YYYY
 		; Posiciona el texto (Fecha)
 		ld hl, $1D0E
 		call NGN_TEXT_POSITION
@@ -719,7 +749,8 @@ FUNCTION_SYSTEM_INFO:
 		; Año
 		ld hl, $0B0C
 		call @@RTC_PRINT_DATA
-
+		
+	@@RTC_READ_TIME:
 		; Posiciona el texto (Hora)
 		ld hl, $1D14
 		call NGN_TEXT_POSITION

@@ -138,6 +138,17 @@ FUNCTION_KEYBOARD_TEST_RUN:
 		call FUNCTION_KEYBOARD_TEST_KEYPRESS
 
 		; Deteccion de salida del test
+		;Set KANA LED 
+		call NGN_PSG_KANALED
+
+		ld a, [NGN_KEY_CAPS]		; CAPSキーのチェック
+		and a						;
+		ld a,1						; LED ON
+		jr z,@@SCAN_CAPS_LED
+		xor a
+		@@SCAN_CAPS_LED:
+		call $0132					; 押されていたらCAPS LEDを点灯
+
 		ld a, [NGN_JOY1_TG2]		; Si se pulsa "BOTON 2"
 		and $02						; Detecta "KEY DOWN"
 		jr nz, @@EXIT				; Vuelve al menu principal
@@ -279,8 +290,20 @@ FUNCTION_KEYBOARD_TEST_KEYPRESS:
 		ld a, 47					; Ultima tecla del bloque medio (contando la n尊0)
 		sub e						; Restale el numero de tecla
 		jr nc, @@MIDDLE_ROWS		; Si no da negativo, esta en la fila intermedia, continua buscando
-		ld a, e						; Compensa el desplazamiento de fila (Reg E - 48)
-		sub 48
+		ld a, 71					; 方向キーなど文字列キー判定
+		sub e						; 
+		jr nc, @@BOTTOM_ROWS_CTRL		; Si no da negativo, esta en la fila intermedia, continua buscando
+
+		ld	a,89					;実行キー
+		sub e
+		jr z,@@PRINT_JIKKOU
+		ld	a,91					;取り消しキー
+		sub e
+		jr z,@@PRINT_TORIKESHI
+
+		ld a, e						; Compensa el desplazamiento de fila (Reg E - 72)
+		sub 72
+		
 		ld e, a
 		ld hl, KEY_NAMES_BOTTOM_ROWS
 		jr @@PRINT_KEY
@@ -299,7 +322,24 @@ FUNCTION_KEYBOARD_TEST_KEYPRESS:
 		jp $00A2						; Imprime el caracter. Rutina [CHPUT] de la BIOS
 		; El return lo realiza la propia rutina de la bios
 
-
+; PATCHED @v9938
+		@@BOTTOM_ROWS_CTRL:
+		ld a, e						; eレジスタにキーコード→a
+		sub 48						; テーブル番号計算
+		rl	a
+		rl	a
+		rl	a						;x8
+		ld e, a
+		ld hl, KEY_NAMES_BOTTOM_ROWS_CTRL	;Table Start point
+		add hl, de							;Table位置計算
+		@@PRINT_NGN:
+		jp NGN_TEXT_PRINT			;文字列表示
+@@PRINT_JIKKOU:
+		ld hl, KEY_NAMES_JIKKOU
+		jr @@PRINT_NGN
+@@PRINT_TORIKESHI:
+		ld hl, KEY_NAMES_TORIKESHI
+		jr @@PRINT_NGN
 
 ;***********************************************************
 ; Fin del archivo

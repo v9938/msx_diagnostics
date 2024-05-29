@@ -163,8 +163,27 @@ NGN_PSG_INIT:
 	; Vuelve
 	ret
 
-
-
+; ----------------------------------------------------------
+; KANA-LED Set function
+; ----------------------------------------------------------
+NGN_PSG_KANALED:
+	di
+	ld a, 15				;PSG register 15
+	out [$A0], a
+	in a,[$A2]				; Current Setting
+	and $7f					; Bit mask
+    ld b,a              	; PSG register 15 without KANA led bit
+    ld a,[NGN_KEY_CODE] 	; KANA LED status
+	and a					; Not Zero?
+	ld a,$80				; KANA LED OFF
+	jr z,@@KANALED_R15_SET
+	xor a					; KANA LED ON
+    @@KANALED_R15_SET:
+    or b
+	out [$A1], a			; PSG Set KANA-LED Status
+	ei
+	ret
+	
 
 
 ; ----------------------------------------------------------
@@ -180,9 +199,12 @@ NGN_PSG_READ_JOY1:
 	di
 
 	; Seleccion del Puerto 1
-	ld a, 15	; Seleccion del registro 15
+	ld a, 15			;Seleccion del registro 15
 	out [$A0], a
-	out [$A1], a	; Puerto 1 seleccionado [00001111] = 15
+	in a,[$A2]			; Current Setting
+	and $80
+	or	$0F
+	out [$A1], a		; Puerto 1 seleccionado [x0001111]
 
 	; Selecciona el registro de datos de puerto de JoyStick [14]
 	ld a, 14
@@ -236,12 +258,13 @@ NGN_PSG_READ_JOY2:
 
 	; Deshabilita las interrupciones
 	di
-
 	; Seleccion del Puerto 2
 	ld a, 15	; Seleccion del registro 15
 	out [$A0], a
-	ld a, 79	; Puerto 1 seleccionado [01001111] = 79
-	out [$A1], a
+	in a,[$A2]			; Current Setting
+	and $80
+	or	$4F
+	out [$A1], a	; Puerto 1 seleccionado [x1001111]
 
 	; Selecciona el registro de datos de puerto de JoyStick [14]
 	ld a, 14

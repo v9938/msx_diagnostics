@@ -473,7 +473,7 @@ FUNCTION_MEMORY_CHECK_IF_RAM_EXPANDED:
 		@@RESTORE_SLOTS_CONFIG:
 		; Apunta el slot primario a la pagina 3
 		ld a, d				; Recupera la configuracion del slot primario
-		out [$A0], a		; para acceder a la pagina 3
+		out [$A8], a		; para acceder a la pagina 3
 		exx					; Recupera el set de registros de la sombra, trabaja con los normales
 		ex af, af'			; Recupera la copia sombreada de A
 		ld e, a				; Guarda si es RAM ($FF) en E

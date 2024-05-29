@@ -131,7 +131,6 @@ FUNCTION_SYSTEM_RESET_KEYBOARD_MATRIX:
 ; ----------------------------------------------------------
 
 FUNCTION_SYSTEM_SET_KEY_NAMES_TABLE:
-
 	; Usa la tabla internacional por defecto
 	ld hl, KEY_NAMES_INTERNATIONAL
 	ld [KEY_NAMES_TABLE], hl
@@ -144,6 +143,14 @@ FUNCTION_SYSTEM_SET_KEY_NAMES_TABLE:
 	; Guarda el resultado para futuras referencias
 	ld [KEYBOARD_LAYOUT], a
 
+	; Add Japan mode @v9938
+	@@JAPAN:
+	cp 0		; JAPAN
+	jr nz, @@FRANCE
+	ld hl, KEY_NAMES_JAPAN
+	ld [KEY_NAMES_TABLE], hl
+	ret
+	
 	; Si se identifica como Francia...
 	@@FRANCE:
 	cp 2		; Francia
@@ -174,8 +181,6 @@ FUNCTION_SYSTEM_HID_READ:	; (Human Interface Devices)
 	; --------------------------------
 	; Actualiza las teclas del sistema
 	; --------------------------------
-	
-	; Arriba
 	ld a, [NGN_KEY_UP]	; Valor de la tecla UP
 	and $07			; Filtra el valor de los BITS 0, 1 y 2 (HELD/PRESS/UP)
 	ld b, a			; Guarda el valor en B

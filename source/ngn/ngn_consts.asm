@@ -38,7 +38,7 @@ NGN_COLOR_ADDR		.EQU	$F3E9	; Direccion del Color
 ; Definiciones de los dispositivos HID
 ; ----------------------------------------------------------
 
-NGN_TOTAL_KEYS		.EQU	89	; Numero total de teclas
+NGN_TOTAL_KEYS		.EQU	95	; Numero total de teclas
 NGN_TOTAL_JOYKEYS	.EQU	12	; Numero total de teclas del joystick
 
 NGN_KEY_STATE_HELD	.EQU	1	; Bit 0 a 1 [HELD]

@@ -124,9 +124,18 @@ NGN_KEY_NUM_9:			ds	1	; Tecla NUM 9
 NGN_KEY_NUM_MINUS:		ds	1	; Tecla NUM -
 NGN_KEY_NUM_COMMA:		ds	1	; Tecla NUM ,
 NGN_KEY_NUM_PERIOD:		ds	1	; Tecla NUM .
+; ROW 11
+NGN_KEY_OP0:			ds	1	;
+NGN_KEY_JIKKOU:			ds	1	; JIKKOU
+NGN_KEY_OP2:			ds	1	; 
+NGN_KEY_TORIKESHI:		ds	1	; TORIKESHI
+NGN_KEY_OP4:			ds	1	; 
+NGN_KEY_OP5:			ds	1	; 
+NGN_KEY_OP6:			ds	1	; 
+NGN_KEY_OP7:			ds	1	; 
+
 ; EXTRAS
 NGN_KEY_ANY:			ds	1	; Cualquier tecla
-
 
 ; -----------------------------------------------------------------------
 ;	Joysticks

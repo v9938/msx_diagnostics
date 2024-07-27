@@ -78,17 +78,32 @@ FUNCTION_KEYBOARD_TEST_WAIT_FREE_KEYS:
 	; Texto de espera
 	ld hl, $060B				; Posicion del cursor de texto [XXYY]
 	call NGN_TEXT_POSITION			; Posiciona el cursor
+
 	ld hl, TEXT_KEYBOARD_TEST_WAIT_RELEASE	; Apunta al texto a mostrar
 	call NGN_TEXT_PRINT			; E imprimelo en pantalla
 
 	; Ejecuta la rutina [ENASCR] para habilitar la pantalla
 	call $0044
+	
+	;add @v9938
+	;Added the functions to display the hold keys.
+	
+	;HOLDキーの状態を調べるため一度KEYBUFFERを初期化する。
+	ld hl, NGN_KEY_0				; KEYテーブル初期位置
+	ld b, NGN_TOTAL_KEYS			; キーの数
+	@@RESET_KEYS:			
+		xor a						; 初期値0を代入
+		ld [hl], a					; テーブル初期化
+		inc hl						; テーブル＋1
+	djnz @@RESET_KEYS				; キー数だけ繰り返し
 
 	; Espera a que no se pulse ninguna tecla
 	@@LOOP:
 		
 		; Lee la entrada
 		call FUNCTION_SYSTEM_HID_READ
+
+		call FUNCTION_KEYBOARD_TEST_KEYPRESS		;add @v9938 display of the hold keys.
 
 		ld a, [NGN_KEY_ANY]		; Si esta pulsada "Cualquier tecla"
 		and $FF					; Detecta "KEY DOWN"
@@ -97,6 +112,8 @@ FUNCTION_KEYBOARD_TEST_WAIT_FREE_KEYS:
 		ld a, [SYSKEY_CANCEL]	; Si se pulsa "CANCELAR"
 		and $02					; Detecta "KEY DOWN"
 		ret nz					; Vuelve al menu principal si se pulsa
+
+		call SFX_FUNCTION_UPDATE		; PSG function update.
 
 		; Espera el VSYNC
 		halt

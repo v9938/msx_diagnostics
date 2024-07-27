@@ -67,12 +67,20 @@ NGN_KEYBOARD_READ:
 	; Usa el registro HL para la direccion de la variable asignada a cada tecla
 
 	@@GET_KEY:
+		ld a, b						; @patched @v9938
+		cp 11						; S1985の場合BCDデコードが74LS145+74LS38で行われていて、
+		jr nz, @@GET_KEY_ROW0to10	; Y10のデコードを簡易的に行っている機種があるのでその対策
+		call @@GET_KEY_ROW11
+		jr @@CHK_KEY_X_COLUMN		; 通常ルーチンへ戻る
+
+	@@GET_KEY_ROW0to10:
 	
 		in a, [$AA]			; Lee el contenido del selector de filas
 		and $F0				; Manten los datos de los BITs 4 a 7 (resetea los bits 0 a 3)
 		or b				; Indica la fila
 		out [$AA], a		; y seleccionala
 		in a, [$A9]			; Lee el contenido de la fila
+	@@CHK_KEY_X_COLUMN:
 		and c				; Lee el estado de la tecla segun el registro C
 		jr z, @@KEY_HELD	; En caso de que se haya pulsado, salta
 
@@ -140,6 +148,39 @@ NGN_KEYBOARD_READ:
 		@@KEY_ANY_PRESS:
 		ld [hl], $0B			; B1011
 		ret
+
+	; @patched @v9938
+	; 10キーはY9/10,実行キーなどはY11に割り当てられている。
+	; S1985などY COLUMNのデコードが必要な機種で10キーに対応している機種では
+	; BCDデコーダ74LS145はY0-Y9までしか対応できず、Y10デコードは74LS38で行っている。
+	; そしてY10デコードをBIT3とBIT2をNANDした信号をY10としている機種がある(主にSONY機)
+	; 結果当該機種ではY10とY11,Y14,Y15はY10をSCANしていることになるので判別が必要
+	
+	; Models that use the S1985 require Y COLUMN decoding. 
+	; This decoding is performed using the 74LS145 and 74LS38. 
+	; 74LS145 handles the decoding for Y0-Y9, while Y10 is decoded using the 74LS38. 
+	;
+	; In some models (mainly SONY machines), the logic for Y10 is Y10 = ~(BIT3 & BIT2).  
+	; For these models, since Y10, Y11, Y14, and Y15 are all equivalent to Y10, 
+	; distinguishing between them is necessary.
+		
+		@@GET_KEY_ROW11:
+		in a, [$AA]					; PPIのRead
+		and $F0						; 上位4BITは他用途なのでそのまま素通し
+		or 10						; Y10を一旦セット
+		out [$AA], a				; Y設定
+		in a, [$A9]					; XRead(10) 
+		ld e,a						; ※in eは使えないらしい
+		and $F0						; 上位4BITは他用途なのでそのまま素通し
+		or b						; Y11をセット
+		out [$AA], a				; Y設定
+		in a, [$A9]					; XRead(B)
+		cp e						; Y10とY(B)の結果を比較して同じ値ならY(B)は無効値とする
+		ret nz						; 有効値なので戻る
+		ld a,$ff					; 無効またはキー入力無し
+		ret
+		
+
 
 
 

@@ -153,9 +153,9 @@ MONITOR_COLOR_FRAME             .EQU  3       ; Frame actual
 ; ----------------------------------------------------------
 
 ; Puerto para la seleccion de segmento de mapper
-
-MEMORY_MAPPER_TEST_PAGE         .EQU    $0FFF   ; Direccion de la pagina
-MEMORY_MAPPER_TEST_PORT         .EQU    $FC     ; Puerto para la pagina [Pagina 0 seleccionada]
+; MSX1 BIOSのバグ対応のためテストアドレスを変更した。
+MEMORY_MAPPER_TEST_PAGE         .EQU    $8FFF   ; Direccion de la pagina
+MEMORY_MAPPER_TEST_PORT         .EQU    $FE     ; Puerto para la pagina [Pagina 2 seleccionada]
 
 
 ; Usa el NGN_RAM_BUFFER, para las variables, define aqui los offsets

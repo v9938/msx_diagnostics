@@ -179,8 +179,14 @@ FUNCION_MEMORY_GET_SLOT_RAM:
 		inc hl
 		djnz @@RESET_COUNTER
 
+	; 初期のMSX BIOSにはSLOT0が拡張されてる時にPage0のRDSLT/WRSLTが実行できないバグがある
+	; その対策としてPage0と1で処理方法を変更した。
+
+	call FUNCION_MEMORY_GET_RAM_PAGES0_NO_MAPPER
+
 	; Paginas 0, 1 y 2 sin mapper
-	call FUNCION_MEMORY_GET_RAM_PAGES012_NO_MAPPER
+	call FUNCION_MEMORY_GET_RAM_PAGES12_NO_MAPPER
+
 	; Pagina 3 sin mapper
 	call FUNCION_MEMORY_GET_RAM_PAGE3_NO_MAPPER
 
@@ -202,11 +208,11 @@ FUNCION_MEMORY_GET_SLOT_RAM:
 ; paginas 0, 1 y 2 SIN MAPPER
 ; ----------------------------------------------------------
 
-FUNCION_MEMORY_GET_RAM_PAGES012_NO_MAPPER:
+FUNCION_MEMORY_GET_RAM_PAGES12_NO_MAPPER:
 
-	ld hl, $0000		; Direccion inicial de la pagina
+	ld hl, $4000		; Direccion inicial de la pagina
 	ld [MEMORY_PAGE_ADDR], hl
-	ld b, $0C			; Paginas del 0 al 3 en pasos de 4kb (12 X 4)
+	ld b, $08			; Paginas del 1 al 3 en pasos de 4kb (8 X 4)
 
 	@@CHECK_PAGES_LOOP:
 
@@ -269,10 +275,18 @@ FUNCION_MEMORY_GET_RAM_PAGES012_NO_MAPPER:
 ; en todos los slots/sub-slots, sin mapper
 ; ----------------------------------------------------------
 
+FUNCION_MEMORY_GET_RAM_PAGES0_NO_MAPPER:
+
+	; Informa de la direccion inicial de memoria del test
+	ld hl, $0000
+	jr @@FUNCION_MEMORY_GET_RAM_PAGEX_NO_MAPPER
+
 FUNCION_MEMORY_GET_RAM_PAGE3_NO_MAPPER:
 
 	; Informa de la direccion inicial de memoria del test
 	ld hl, $C000
+
+	@@FUNCION_MEMORY_GET_RAM_PAGEX_NO_MAPPER:
 	ld [MEMORY_PAGE_ADDR], hl
 
 	ld b, 4		; 4 segmentos de 4kb
@@ -331,7 +345,7 @@ FUNCION_MEMORY_GET_RAM_PAGE3_NO_MAPPER:
 		ld a, [MEMORY_SLOT_ID]
 		bit 7, a
 		jr z, @@NOT_EXPANDED
-
+;拡張スロットregisterを引っ張り出すのにPage3を切り替え
 		; Esta expandido - Apunta el slot primario a la pagina 3
 		rrc a				; Pon los bits 0 y 1
 		rrc a				; en la posicion 6 y 7
@@ -345,6 +359,8 @@ FUNCION_MEMORY_GET_RAM_PAGE3_NO_MAPPER:
 		; Guarda la configuracion actual de slots en B
 		in a, [$A8]
 		ld b, a
+		ex af, af'			; 裏レジスタに元の値を残す
+
 		; Selecciona la configuracion de subslots
 		ld a, [(NGN_RAM_BUFFER + MEMORY_PAGE3_SLOT)]
 		call FUNCTION_MEMORY_CHECK_IF_RAM_EXPANDED			; Verifica si es RAM
@@ -440,13 +456,17 @@ FUNCTION_MEMORY_CHECK_IF_RAM_EXPANDED:
 		out [$A8], a		; Selecciona el slot primario en la pagina 3
 		ld a, [$FFFF]		; Lee la configuracion de sub-slots
 		cpl					; Complementala
+		ex af, af'			; 裏レジスタに拡張スロット元値を取っておく
+
+		ld a, [$FFFF]		; Lee la configuracion de sub-slots
+		cpl					; Complementala
 		and c				; Guarda la configuracion de las pagina no seleccionadas
 		or d				; Añade la configuracion de la pagina seleccionada
 		ld [$FFFF], a		; Aplica la configuracion de sub-slots
 		in a, [$A8]			; Lee la configuracion de slots para acceder a la pagina 3
 		ld d, a				; Guardala en D
 		; Restaura el slot primario
-		ld a, b				; Lee la configuracion de slots original
+;		ld a, b				; Lee la configuracion de slots original
 		and c				; Guarda la configuracion de las paginas no activas
 		or e				; Añade la configuracion de la pagina activa
 		out [$A8], a		; Selecciona esa configuracion de slots
@@ -463,24 +483,28 @@ FUNCTION_MEMORY_CHECK_IF_RAM_EXPANDED:
 		ld a, b				; Y restaura el valor original del byte
 		ld [hl], a
 		ld a, $FF			; Indica que es RAM
-		ex af, af'			; Mandalo a la copia sombreada
 		jr @@RESTORE_SLOTS_CONFIG
 
 		@@NOT_RAM:
 		ld a, $00			; Indica que no es RAM
-		ex af, af'			; Mandalo a la copia sombreada
 
 		@@RESTORE_SLOTS_CONFIG:
 		; Apunta el slot primario a la pagina 3
+		ex af, af'			; Mandalo a la copia sombreada
+		ld e,a
 		ld a, d				; Recupera la configuracion del slot primario
 		out [$A8], a		; para acceder a la pagina 3
+		ld a,e
+		ld [$FFFF],a		; Configuracion de subslots
+
 		exx					; Recupera el set de registros de la sombra, trabaja con los normales
 		ex af, af'			; Recupera la copia sombreada de A
 		ld e, a				; Guarda si es RAM ($FF) en E
-		ld a, c				; Recupera la configuracion de subslots
-		ld [$FFFF], a		; Restaurala
+
 		ld a, b				; Recupera la configuracion de slots
 		out [$A8], a		; Restaurala
+		ld a, c				; Recupera la configuracion de subslots
+		ld [$FFFF], a		; Restaurala
 
 		; Vuelve
 		ret

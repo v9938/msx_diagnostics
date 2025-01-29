@@ -30,7 +30,7 @@ TEXT_DASHED_LINE:
 ; Texto de cabecera de los menus
 TEXT_MENU_HEADER:
 
-	db	" MSX DIAGNOSTICS v1.2.2J", $0D, $0A, $00
+	db	" MSX DIAGNOSTICS v1.2.3J", $0D, $0A, $00
 
 
 

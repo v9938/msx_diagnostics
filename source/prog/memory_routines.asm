@@ -654,99 +654,114 @@ FUNCION_MEMORY_GET_RAM_IN_MAPPER:
 	; Deshabilita las interrupciones
 	di
 
-	; Paso 1 - Copia de seguridad de los bytes a analizar de cada segmento
-	ld de, (NGN_RAM_BUFFER + MEMORY_MAPPER_PAGES_BACKUP)
-	ld b, $FF
+	;ステップ1 検査アドレスのマッパー既存値を保存する。
+	ld de, (NGN_RAM_BUFFER + MEMORY_MAPPER_PAGES_BACKUP)			; RAMのデータバックアップを置く先頭アドレス
+	ld b,$FF											; B=ループ回数、C=検査したいBANK番号
 	@@DO_BACKUP:
-		push bc											; Preserva el registro
-		push de
-		ld a, b											; Carga el nº de segmento actual
-		out [MEMORY_MAPPER_TEST_PORT], a				; Seleccion del segmento del mapper
-		ld a, [MEMORY_SLOT_ID]		; ID de slot
-		ld hl, MEMORY_MAPPER_TEST_PAGE					; Direccion de la pagina 
-		call $000C										; Lee un byte del slot con la ID en A de la direccion HL (RDSLT)
-		pop de											; Restaura los registros
+		push bc											; 選択中マッパー保存
+		push de											; バックアップアドレス保存
+		ld a, b											; マッパー値をaレジスターに移動
+		cpl												; ビット反転で正値を得る
+		out [MEMORY_MAPPER_TEST_PORT], a				; マッパー選択
+		ld a, [MEMORY_SLOT_ID]							; 検査するスロット=MEMORY_SLT_ID
+		ld hl, MEMORY_MAPPER_TEST_PAGE					; MEMORY_MAPPERのテストに使うアドレス
+		call $000C										; スロット読み込み(RDSLT)
+		pop de											; レジスター復帰
 		pop bc
-		ld [de], a										; Guarda el dato leido
-		ld a, b											; Sal si ya has completado completado el ciclo
+		ld [de], a										; バックアップエリアに読み取り値を保存
+		ld a, b											; ループ回数の検査 FF>FE>...>00まで回す
 		or a
 		jr z, @@DO_BACKUP_EXIT
-		inc de											; Siguiente posicion en el buffer de backup
-		dec b											; Siguiente ciclo del bucle
+		inc de											; 保存アドレス更新
+		dec b											; 検査するバンク更新
 		jr @@DO_BACKUP
 	@@DO_BACKUP_EXIT:
 
-	; Paso 2 - Marca el primer byte de todos los segmentos como $FF
-	ld bc, $FF00
+	; ステップ2 検査アドレスのデータを反転させてデータを書いて、比較することで当該バンクがRAMか判定する
+	ld de, (NGN_RAM_BUFFER + MEMORY_MAPPER_PAGES_BACKUP)			; RAMのデータバックアップを置く先頭アドレス
+	ld b,$FF										; B=ループ回数、C=検査したいBANK番号
 	@@DO_SETUP:
-		push bc											; Preserva el registro
-		ld a, c											; Carga el nº de segmento actual
-		out [MEMORY_MAPPER_TEST_PORT], a				; Seleccion del segmento del mapper
-		ld e, $FF										; Byte a escribir
-		ld a, [MEMORY_SLOT_ID]		; ID de slot
-		ld hl, MEMORY_MAPPER_TEST_PAGE					; Direccion de la pagina 
-		call $0014 										; Escribe un byte (E) en el slot con la ID en A en la direccion HL (WRSLT)
-		pop bc
-		ld a, b											; Sal si ya has completado completado el ciclo
-		or a
-		jr z, @@DO_SETUP_EXIT
-		inc c											; Siguiente pagina
-		dec b											; Siguiente ciclo del bucle
-		jr @@DO_SETUP
-	@@DO_SETUP_EXIT:
+		push bc											; レジスター値保存
+		push de
+		ld a, b											; マッパー値をaレジスターに移動
+		cpl												; ビット反転で正値を得る
+		out [MEMORY_MAPPER_TEST_PORT], a				; マッパー選択
 
-	; Paso 3 - Si es un mapper, leyendo el byte, escribiendo un nuevo valor y buscando una repeticion
-	ld bc, $FF00
-	@@DO_CHECK:
-		push bc											; Preserva el registro
-		ld a, c											; Carga el nº de segmento actual
-		out [MEMORY_MAPPER_TEST_PORT], a				; Seleccion del segmento del mapper
-		ld a, [MEMORY_SLOT_ID]		; ID de slot
-		ld hl, MEMORY_MAPPER_TEST_PAGE					; Direccion de la pagina 
-		call $000C										; Lee un byte del slot con la ID en A de la direccion HL (RDSLT)
-		pop bc											; Recupera el registro
-		sub a, c										; Si el valor leido es inferior al actual, fin del mapper (o no es un mapper)
-		jr c, @@END_OF_CHECK							; Sal si es inferior
-		ld hl, [(NGN_RAM_BUFFER + MEMORY_MAPPER_TOTAL_PAGES)]		; Actualiza el contador de segmentos
+		ld a, [MEMORY_SLOT_ID]							; 検査するスロット=MEMORY_SLT_ID
+		ld hl, MEMORY_MAPPER_TEST_PAGE					; MEMORY_MAPPERのテストに使うアドレス
+		call $000C										; スロット読み込み(RDSLT)
+		pop de
+
+		ld b,a											; 読み込み値を一旦保存
+		ld a,[de]										; 保存値をレジスタに入れる
+		cp b											; 読み込み値との比較
+		jr nz,@@END_OF_CHECK							; この時点でデータが変わっているのでバンクのミラのデータ→検査終了
+
+		cpl												; 読み込んだデータを反転
+		push de
+		ld e, a											; 書き込みデータ値(反転値)
+		ld a, [MEMORY_SLOT_ID]							; 検査するスロット=MEMORY_SLT_ID
+		ld hl, MEMORY_MAPPER_TEST_PAGE					; MEMORY_MAPPERのテストに使うアドレス
+		call $0014 										; 当該スロットへデータ書き込み(WRSLT)
+
+		ld a, [MEMORY_SLOT_ID]							; 検査するスロット=MEMORY_SLT_ID
+		ld hl, MEMORY_MAPPER_TEST_PAGE					; MEMORY_MAPPERのテストに使うアドレス
+		call $000C										; スロット読み込み(RDSLT)
+
+		pop de
+
+		ld b,a											; 読み込み値を一旦保存
+		ld a,[de]										; 保存値をレジスタに入れる
+		cpl												; 期待値を作る
+		cp b											; 読み込み値との比較
+		jr nz,@@END_OF_CHECK							; 有効領域では無いので終了
+
+		ld hl, [(NGN_RAM_BUFFER + MEMORY_MAPPER_TOTAL_PAGES)]		; マッパー＋16KB
 		inc hl
 		ld [(NGN_RAM_BUFFER + MEMORY_MAPPER_TOTAL_PAGES)], hl
-		push bc
-		ld e, c											; Byte a escribir (nº de segmento)
-		ld a, [MEMORY_SLOT_ID]		; ID de slot
-		ld hl, MEMORY_MAPPER_TEST_PAGE					; Direccion de la pagina 
-		call $0014 										; Escribe un byte (E) en el slot con la ID en A en la direccion HL (WRSLT)
-		pop bc											; Restaura el registro
-		ld a, b											; Sal si ya has completado completado el ciclo
-		or a
-		jr z, @@END_OF_CHECK
-		inc c											; Siguiente pagina
-		dec b											; Siguiente ciclo del bucle
-		jr @@DO_CHECK
-	@@END_OF_CHECK:
 
-	; Paso 4 - Restaura la copia de seguridad
-	ld de, (NGN_RAM_BUFFER + MEMORY_MAPPER_PAGES_BACKUP)
-	ld b, $FF
+		pop bc											; レジスタ復帰
+		ld a, b											; ループ回数の検査 FF>FE>...>00まで回す
+		or a
+		jr z, @@DO_SETUP_EXIT
+		inc de											; メモリ保存アドレス更新
+		dec b											; ループ回数更新
+		jr @@DO_SETUP
+	@@END_OF_CHECK:
+		pop bc											; レジスタ復帰
+		ld b,a
+	@@DO_SETUP_EXIT:
+		cpl
+
+	; ステップ3 RAMに書いたデータを元に戻す
+		ld de, (NGN_RAM_BUFFER + MEMORY_MAPPER_PAGES_BACKUP)	; 値保管Work
+		ld b,a													; aレジスタにバンクの最大値が入っている
+		ld c,$00												; カレントのバンク番号
+
 	@@DO_RESTORE:
-		push bc											; Preserva el registro
-		push de
-		ld a, b											; Carga el nº de segmento actual
-		out [MEMORY_MAPPER_TEST_PORT], a				; Seleccion del segmento del mapper
-		ld a, [de]										; Lee el byte a restaurar
-		ld e, a											; Guardalo en E
-		ld a, [MEMORY_SLOT_ID]							; ID de slot
-		ld hl, MEMORY_MAPPER_TEST_PAGE					; Direccion de la pagina 
-		call $0014 										; Escribe un byte (E) en el slot con la ID en A en la direccion HL (WRSLT)
-		pop de											; Restaura los registros
+		push bc											; 選択中マッパー+ループ回数保存
+		push de											; データ保管Work
+		ld a, c											; バンク値ロード
+		out [MEMORY_MAPPER_TEST_PORT], a				; バンク切り替え
+		ld a, [de]										; バックアップ値読み込み
+		ld e, a											; 書き込みデータ
+		ld a, [MEMORY_SLOT_ID]							; 検査するスロット=MEMORY_SLT_ID
+		ld hl, MEMORY_MAPPER_TEST_PAGE					; MEMORY_MAPPERのテストに使うアドレス
+		call $0014 										; 当該スロットへデータ書き込み(WRSLT)
+		pop de											; レジスター復帰
 		pop bc
-		ld a, b											; Sal si ya has completado completado el ciclo
+		ld a, b											; ループ終了か判定
 		or a
 		jr z, @@DO_RESTORE_EXIT
-		inc de											; Siguiente posicion en el buffer de backup
-		dec b											; Siguiente ciclo del bucle
+		inc de											; バッファーアドレス更新
+		inc c											; バンク更新
+		dec b											; ループ回数更新
 		jr @@DO_RESTORE
 	@@DO_RESTORE_EXIT:
 
+	ld a,MEMORY_MAPPER_TEST_DEF_SEG
+	out [MEMORY_MAPPER_TEST_PORT], a				; 元のバンクに戻しておく
+	
 	; Habilita las interrupciones
 	ei
 
